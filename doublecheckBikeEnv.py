@@ -1,6 +1,9 @@
-from SensorsBikeEnv import BikeEnv
+from testingDictSpace import BikeEnv
+from gym.wrappers import FlattenObservation
 
 env = BikeEnv()
+env = FlattenObservation(env)
+
 episodes = 3
 
 for episode in range(episodes):

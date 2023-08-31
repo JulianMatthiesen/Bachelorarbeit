@@ -18,6 +18,7 @@ import numpy as np
 from gym import spaces
 import carla
 import random
+from gym.wrappers import FlattenObservation
 
 
 class BikeEnv(gym.Env):
@@ -204,17 +205,10 @@ class BikeEnv(gym.Env):
         
         get_pos = self.bike.get_transform().location
         pos_bike = [get_pos.x, get_pos.y]
-        # x bzw. y Werte von -10 bis -70 bzw. -5 bis -130 skaliert auf 0 bis 255
-        x_scaled = (pos_bike[0] - self.XMIN) * (255 / (self.XMAX - self.XMIN)) 
-        y_scaled = (pos_bike[1] - self.YMIN) * (255 / (self.YMAX - self.YMIN)) 
-        pos_bike = [x_scaled, y_scaled]
-        pos_bike = np.array(pos_bike, dtype=np.uint8)
-        # pos_bike in die Form von front_camera bringen (für jeden Pixel einmal)
-        pos_bike = np.tile(pos_bike, (self.front_camera.shape[0], self.front_camera.shape[1], 1))
-        # pos_bike für jeden Pixel hinter rgb und alpha anhängen
-        observation = np.concatenate((self.front_camera, pos_bike), axis=-1)
-
-        observation = np.array(observation)
+        observation = {
+            "position": pos_bike,
+            "image": self.front_camera
+        }
         return observation
 
     def get_distance_to_target(self):

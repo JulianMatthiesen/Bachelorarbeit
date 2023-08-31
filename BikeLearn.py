@@ -6,8 +6,8 @@ import time
 from gym.wrappers import FlattenObservation
 
 
-models_dir = f"models/WithoutPositionOrSemSeg"
-logdir = f"logs/WithoutPositionOrSemSeg"
+models_dir = f"models/testingDictSpace"
+logdir = f"logs/testingDictSpace"
 
 if not os.path.exists(models_dir):
     os.makedirs(models_dir)
@@ -17,12 +17,13 @@ if not os.path.exists(logdir):
 
 env = BikeEnv()
 
+
 obs = env.reset()
 
 #model_path = f"{models_dir}/320000.zip"
 #model = PPO.load(model_path, env=env)
 
-model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=logdir)
+model = PPO("MultiInputPolicy", env, verbose=1, tensorboard_log=logdir)
 
 TIMESTEPS=10000
 i = 0
