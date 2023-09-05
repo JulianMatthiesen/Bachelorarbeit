@@ -213,7 +213,7 @@ class BikeEnv(gym.Env):
     def calculate_reward(self):
         current_distance = self.get_distance_to_target()
        
-        distance_reward = -(current_distance / 1000)
+        distance_reward = -(current_distance / 100)
 
         reward_for_target = 0
 
