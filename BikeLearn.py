@@ -6,8 +6,8 @@ import time
 from gym.wrappers import FlattenObservation
 
 
-models_dir = f"models/CL1"
-logdir = f"logs/CL1"
+models_dir = f"models/CL2"
+logdir = f"logs/CL2"
 
 if not os.path.exists(models_dir):
     os.makedirs(models_dir)

@@ -5,12 +5,12 @@ from GoToGoalBikeEnv import BikeEnv
 import carla
 
 
-models_dir = "models/goToGoalNew3"
+models_dir = "models/CL2"
 
 env = BikeEnv()
 env.reset()
 
-model_path = f"{models_dir}/1100000.zip"
+model_path = f"{models_dir}/760000.zip"
 model = PPO.load(model_path, env=env)
 
 episodes = 15

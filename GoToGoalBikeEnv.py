@@ -109,7 +109,7 @@ class BikeEnv(gym.Env):
             throttle = float(action[0]) 
             brake = 0.0
         else: 
-            brake = float(action[0])
+            brake = float(action[0]) * (-1)
             throttle = 0.0
 
         steer=float(action[1])
@@ -120,7 +120,7 @@ class BikeEnv(gym.Env):
         self.bike_location = self.bike.get_transform().location
         self.info["actions"].append(action.tolist())
         observation = self.get_observation()
-        self.reward = self.calculate_reward()
+        self.reward = self.calculate_reward(action)
         return observation, self.reward, self.done, self.info
 
     def reset(self):
@@ -202,7 +202,7 @@ class BikeEnv(gym.Env):
         # target wird vor dem Fahrrad gesetzt
         if self.target_pylon:
             self.target_pylon.destroy()    
-        target_location = self.bike.get_transform().location + (self.bike.get_transform().get_forward_vector() * 20)        
+        target_location = self.bike.get_transform().location + (self.bike.get_transform().get_forward_vector() * 15)        
         target_location.x = np.clip((target_location.x + random.uniform(-3, 3)), self.XMIN + 2, self.XMAX - 2) 
         target_location.y =  np.clip((target_location.y + random.uniform(-3, 3)), self.YMIN + 2, self.YMAX - 2) 
 
@@ -210,12 +210,15 @@ class BikeEnv(gym.Env):
         return target_location
 
     
-    def calculate_reward(self):
+    def calculate_reward(self, action):
         current_distance = self.get_distance_to_target()
-       
-        distance_reward = -(current_distance / 100)
+        distance_reward = -(current_distance / 1000)
 
+        throttle_reward = 0
         reward_for_target = 0
+
+        if action[0] > 0:
+            throttle_reward = 0.05
 
         # if target reached -> reward for finding and calculate new target 
         if current_distance < 5.0:
@@ -224,7 +227,7 @@ class BikeEnv(gym.Env):
             self.tick_count = 0
             print("target reached")
 
-        reward = (reward_for_target  + distance_reward) 
+        reward = (reward_for_target  + distance_reward + throttle_reward) 
         
         # negative reward and stop episode, when leaving the square or reaching time limit
         self.world.tick()
