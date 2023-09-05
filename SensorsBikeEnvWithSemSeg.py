@@ -57,8 +57,12 @@ class BikeEnv(gym.Env):
 
         # neural Networks prefer Inputs between 0 and 1 or -1 and 1 or sth like that -> sentdex
         # CNN policy normalizes the observation automatically
-        self.observation_space = spaces.Box(low=0, high=255, shape=(image_height, image_width, num_channels_depth + num_channels_semseg + position_dimensions), dtype=np.uint8)
+        # self.observation_space = spaces.Box(low=0, high=255, shape=(image_height, image_width, num_channels_depth + num_channels_semseg + position_dimensions), dtype=np.uint8)
 
+        self.observation_space = spaces.Dict({
+            "depth_image": spaces.Box(low=0, high=255, shape=(image_height, image_width, num_channels_depth), dtype=np.uint8),
+            "semseg_image": spaces.Box(low=0, high=255, shape=(image_height, image_width, num_channels_semseg), dtype=np.uint8)
+            })
 
         self.client = carla.Client('localhost', 2000)
         self.client.set_timeout(20.0)
@@ -220,23 +224,12 @@ class BikeEnv(gym.Env):
     
     def get_observation(self):
         
-        # front_camera_semseg für jeden Pixel hinter front_camera_depth anhängen
-        combined_camera_obs = np.concatenate((self.front_camera_depth, self.front_camera_semseg), axis=-1)
-
-        get_pos = self.bike.get_transform().location
-        pos_bike = [get_pos.x, get_pos.y]
-        # x bzw. y Werte von -10 bis -70 bzw. -5 bis -130 skaliert auf 0 bis 255
-        x_scaled = (pos_bike[0] - self.XMIN) * (255 / (self.XMAX - self.XMIN)) 
-        y_scaled = (pos_bike[1] - self.YMIN) * (255 / (self.YMAX - self.YMIN)) 
-        pos_bike = [x_scaled, y_scaled]
-        pos_bike = np.array(pos_bike, dtype=np.uint8)
-
-        # pos_bike in die Form von combined_camera_obs bringen (für jeden Pixel einmal)
-        pos_bike = np.tile(pos_bike, (combined_camera_obs.shape[0], combined_camera_obs.shape[1], 1))
-        # pos_bike für jeden Pixel hinter front_camera_semseg und front_camera_depth anhängen
-        observation = np.concatenate((combined_camera_obs, pos_bike), axis=-1)
-
-        observation = np.array(observation)
+        
+        observation = {
+            "depth_image": self.front_camera_depth,
+            "semseg_image": self.front_camera_semseg
+        }
+        
         return observation
 
     def get_distance_to_target(self):

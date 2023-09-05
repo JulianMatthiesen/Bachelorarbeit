@@ -247,11 +247,11 @@ class BikeEnv(gym.Env):
         self.world.tick()
         self.tick_count += 1
         
-        """
+        
         if self.tick_count >= self.max_time_steps:
             self.done = True
-            reward = -100
-        """
+            #reward = -100
+        
         return reward
     
     def is_within_boundary(self):

@@ -1,5 +1,5 @@
 from stable_baselines3.common.env_checker import check_env
-from testingDictSpace import BikeEnv
+from GoToGoalBikeEnv import BikeEnv
 from gym.wrappers import FlattenObservation
 
 

@@ -1,25 +1,27 @@
 import math
 import gym
 from stable_baselines3 import PPO   
-from SensorsBikeEnv import BikeEnv
+from GoToGoalBikeEnv import BikeEnv
 import carla
 
 
-models_dir = "models/thirdTry"
+models_dir = "models/goToGoalNew3"
 
 env = BikeEnv()
 env.reset()
 
-model_path = f"{models_dir}/1200000.zip"
+model_path = f"{models_dir}/1100000.zip"
 model = PPO.load(model_path, env=env)
 
 episodes = 15
 
 #check model performance:
 
-spectator = env.world.get_spectator()
-transform = carla.Transform(carla.Location(x=-51, y=-126, z=62), carla.Rotation(pitch=-60, yaw=84, roll=0))
-spectator.set_transform(transform)
+# spectator view for AD: 
+
+# spectator = env.world.get_spectator()
+# transform = carla.Transform(carla.Location(x=-51, y=-126, z=62), carla.Rotation(pitch=-60, yaw=84, roll=0))
+# spectator.set_transform(transform)
 
 
 for ep in range(episodes):

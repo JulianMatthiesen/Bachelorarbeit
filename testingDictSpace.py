@@ -58,7 +58,7 @@ class BikeEnv(gym.Env):
         # neural Networks prefer Inputs between 0 and 1 or -1 and 1 or sth like that -> sentdex
         # CNN policy normalizes the observation automatically
         self.observation_space = spaces.Dict({
-            "position": spaces.Box(-130, -5, shape=(2,)),
+            "position": spaces.Box(low=np.array([self.XMIN, self.YMIN]), high=np.array([self.XMAX, self.YMAX]), shape=(2,)),
             "image": spaces.Box(low=0, high=255, shape=(image_height, image_width, num_channels), dtype=np.uint8)
             })
 
@@ -89,7 +89,7 @@ class BikeEnv(gym.Env):
         self.done = False
         self.reward = 0
         self.tick_count = 0
-        self.max_time_steps = 4000
+        self.max_time_steps = 1000
         self.world.tick()
         
         self.info = {"actions": []}
@@ -204,7 +204,8 @@ class BikeEnv(gym.Env):
     def get_observation(self):
         
         get_pos = self.bike.get_transform().location
-        pos_bike = [get_pos.x, get_pos.y]
+        pos_bike = [np.clip(get_pos.x, self.XMIN, self.XMAX), np.clip(get_pos.y, self.YMIN, self.YMAX)]
+
         observation = {
             "position": pos_bike,
             "image": self.front_camera
@@ -226,7 +227,7 @@ class BikeEnv(gym.Env):
     def calculate_reward(self):
         # reward in a range from ~(-1) to ~1 (depending on how dark/bright the depth image is)
         # so the agent wont maximize reward by driving in a circle
-        depth_reward = ((np.mean(self.front_camera[:, :, 0])) - 127) / 255 * 2 
+        depth_reward = ((np.mean(self.front_camera[:, :, 0])) - 127) / 255 * 4 
                         
         # penalty for speeds below 5kmh and above 15kmh
         v = self.bike.get_velocity()
@@ -244,11 +245,11 @@ class BikeEnv(gym.Env):
         self.world.tick()
         self.tick_count += 1
         
-        """
+        
         if self.tick_count >= self.max_time_steps:
             self.done = True
-            reward = -100
-        """
+            #reward = -100
+        
         return reward
     
     def is_within_boundary(self):
