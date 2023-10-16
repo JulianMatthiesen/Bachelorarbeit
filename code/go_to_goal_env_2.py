@@ -28,7 +28,6 @@ class BikeEnv(gym.Env):
     XMIN=-70
     YMAX=-5
     YMIN=-130
-    DISCOUNT = 0.99
 
     metadata = {"render_modes": ["human"], "render_fps": 30}
 
@@ -48,14 +47,6 @@ class BikeEnv(gym.Env):
 
         self.action_space = spaces.Box(low=low, high=high, shape=(2,), dtype=np.float32)
 
-        # The minimal resolution for an image is 36x36 for the default `CnnPolicy`
-        # -> otherwise custom features extractor
-        image_width = 84
-        image_height = 1
-        num_channels = 1
-
-        # neural Networks prefer Inputs between 0 and 1 or -1 and 1 or sth like that -> sentdex
-        # CNN policy normalizes the observation automatically
         self.observation_space = spaces.Dict({
             "angle_to_target": spaces.Box(low=0, high=360, shape=(1,)),
             "distance": spaces.Box(low=0, high=140, shape=(1,)),
@@ -69,9 +60,7 @@ class BikeEnv(gym.Env):
         time.sleep(1)
         self.bp_lib = self.world.get_blueprint_library()
         self.bike_bp = self.bp_lib.find("vehicle.diamondback.century")
-        self.target_pylon_bp = self.bp_lib.find('static.prop.gnome')
-        self.target_pylon = None
-
+       
         self.sensor_data = {}
         self.bike, self.depth_sensor, self.collision_sensor = self.spawn_bike()
 
@@ -81,15 +70,7 @@ class BikeEnv(gym.Env):
         settings.fixed_delta_seconds = 0.05
         self.world.apply_settings(settings)
 
-        #self.client.reload_world(False)
-
-        #position spectator
-        spectator = self.world.get_spectator()
-        transform = carla.Transform(self.bike.get_transform().transform(carla.Location(x=-4, z=2)), self.bike.get_transform().rotation) 
-        spectator.set_transform(transform)
-
         self.target_location = None
-        
         self.front_camera=None
         self.done = False
         self.reward = 0
@@ -97,9 +78,8 @@ class BikeEnv(gym.Env):
         self.depth_ret = 0
         self.steps_with_depth_rew = 0
         self.tick_count = 0
-        self.max_time_steps = 3000
-        self.world.tick()
-        
+        self.max_time_steps = 1000
+        self.world.tick()        
         self.info = {"actions": []}
 
     def step(self, action):
@@ -109,7 +89,11 @@ class BikeEnv(gym.Env):
 
         # update bike_location
         self.bike_location = self.bike.get_transform().location
-        
+
+        self.world.debug.draw_string(self.target_location, "X", draw_shadow=False,
+                                     color=carla.Color(r=255, g=0, b=0), life_time=0.1,
+                                     persistent_lines=True)
+
         self.info["actions"].append(action.tolist())
         observation = self.get_observation()
         self.reward = self.calculate_reward(action)
@@ -120,8 +104,8 @@ class BikeEnv(gym.Env):
         if self.tick_count != 0:
             print("\nThis Episode: ")
             print("Steps: " + str(self.tick_count))
-            print("Steps with Depth Reward: ", self.steps_with_depth_rew)
-            print("Depth Return: ", round(self.depth_ret))
+            print("Steps with Depth Reward: ", self.steps_with_depth_rew)   # number of steps where obstacles were close
+            print("Depth Return: ", round(self.depth_ret))                  # proportion of Depth Reward to total return
             print("Return: ", round(self.ret))
 
         if not len(self.world.get_actors()) == 0:
@@ -129,14 +113,11 @@ class BikeEnv(gym.Env):
             self.depth_sensor.destroy()
             self.collision_sensor.destroy()
 
-
         self.bike, self.depth_sensor, self.collision_sensor = self.spawn_bike()
         
         while self.front_camera is None: 
-            time.sleep(0.01) # warten bis die front camera das erste Bild liefert
+            time.sleep(0.01)                                                # wait until front camera delivers first image
 
-        
-       
         self.done = False
         self.reward = 0
         self.ret = 0
@@ -146,7 +127,7 @@ class BikeEnv(gym.Env):
         self.info = {"actions": []}
         self.world.tick()
         self.tick_count += 1
-        return self.get_observation() #info
+        return self.get_observation() 
 
     def close(self):
         self.bike.destroy()
@@ -160,29 +141,24 @@ class BikeEnv(gym.Env):
     def render(self):
         ...
     """
-# ================== Hilfsmethoden ==================
+# ================== Helper Methods ==================
 
   
-    def spawn_bike(self):
-        # spawn bike
-        
+    def spawn_bike(self):        
+        # spawn bike and set target location
         spawn_point_bike, spawn_point_target = self.get_random_spawn_point()
         spawn_transform = carla.Transform(spawn_point_bike, carla.Rotation())
         bike = self.world.try_spawn_actor(self.bike_bp, spawn_transform)
         self.target_location = spawn_point_target
 
+        # if spawn failed
         while bike == None:
             spawn_point_bike, spawn_point_target = self.get_random_spawn_point()
             spawn_transform = carla.Transform(spawn_point_bike, carla.Rotation())
             bike = self.world.try_spawn_actor(self.bike_bp, spawn_transform)
 
         self.bike_location = spawn_point_bike
-
-        # spawn target
-        if self.target_pylon:
-            self.target_pylon.destroy()  
-
-        self.target_pylon = self.world.spawn_actor(self.target_pylon_bp, carla.Transform(spawn_point_target))
+        self.target_location = spawn_point_target
 
 
         # spawn depth sensor
@@ -242,12 +218,11 @@ class BikeEnv(gym.Env):
         return location1, location2
     
     def get_observation(self):
-        
+        # return observation of angle to target, distance and relevant pixels
         angle_to_target = [self.get_angle_to_target()]
         observed_dist = [self.get_distance_to_target()]
         observed_pixels = self.front_camera[42, :, 0]
         reduced_pixels = np.min(observed_pixels.reshape(-1, 4), axis=1)
-
         observation = {
             "angle_to_target": angle_to_target,
             "distance": observed_dist,
@@ -265,74 +240,62 @@ class BikeEnv(gym.Env):
 
     def get_distance_to_target(self):
         return self.bike_location.distance(self.target_location)
-    
-    def set_new_target(self):
-        spawn_point = self.get_random_spawn_point()
-        if self.target_pylon:
-            self.target_pylon.destroy()  
-
-        self.target_pylon = self.world.spawn_actor(self.target_pylon_bp, carla.Transform(spawn_point))
-        return spawn_point
-
-
-        
+      
     def calculate_reward(self, action):
         current_distance = self.get_distance_to_target()
-        distance_reward = -1.0 * (current_distance / 140)           # im Bereich [-1;0]
-       
+        distance_reward = -1.0 * (current_distance / 140)               # normalized to [-1;0]
 
-        angle_to_target = self.get_angle_to_target()                    # im Bereich 0 bis 360
-        steering = action[1]   
-                                                 # im Bereich -1 bis 1
-        if angle_to_target <= 180:                                      # 0.1 -> Ziel ist minimal links; 179 -> Ziel weit hinten links
-            target_steering = max(-1.0 * (angle_to_target / 90.0), -1)          # je größer der Winkel, desto näher an -1 sollte steer sein
-            steering_difference = abs(target_steering - steering)       # im Bereich 0 bis 2
-            steering_reward = (1 - steering_difference) * 0.25          # im Bereich -0.25 bis 0.25
+        # calculate Steering Reward
+        steering = action[1] 
+        angle_to_target = self.get_angle_to_target()                            # in [0°;360°]
+                     
+        if angle_to_target <= 180:                                              # 0.1° -> target minimal left; 179° -> target far left
+            target_steering = max(-1.0 * (angle_to_target / 90.0), -1)          # big angles -> steer should be close to -1; limit at -1
+            steering_difference = abs(target_steering - steering)               # in [0;2]
+            steering_reward = (1 - steering_difference) * 0.25                  # in[-0.25;0.25]
 
-        if angle_to_target > 180:                                       # 359 -> Ziel ist minimal rechts; 181 -> Ziel weit hinten rechts
-            target_steering = min(1.0 * ((360 - angle_to_target ) / 90.0), 1)   # je kleiner der Winkel (näher an 180), desto näher an 1 sollte steer sein
-            steering_difference = abs(target_steering - steering)       # im Bereich 0 bis 2
-            steering_reward = (1 - steering_difference) * 0.25          # im Bereich -0.25 bis 0.25
-            
-        """durch Testen: Pixelwerte von 30 entsprechen ca. 7 meter 
-           => ab Pixel wert von 20 neg. Reward
-           unterste 37 Reihen sind immer < 20 -> werden nicht berücksichtigt"""
-        """depth_reward = 0
-        selected_data = self.front_camera[:-37, :, 0]
+        if angle_to_target > 180:                                               # 359° -> target minimal right; 181° -> target far right
+            target_steering = min(1.0 * ((360 - angle_to_target ) / 90.0), 1)   # small angles (close to 180°) -> steer should be close to 1; limit at 1
+            steering_difference = abs(target_steering - steering)               # in [0;2]
+            steering_reward = (1 - steering_difference) * 0.25                  # in[-0.25;0.25]
+
+        # calculate Depth Reward
+        depth_reward = 0
+        selected_data = self.front_camera[42, :, 0]
         selected_data = selected_data[selected_data < 20]
         if len(selected_data) != 0:
             self.steps_with_depth_rew += 1
-            n = len(selected_data)                                                           # Anzahl der Pixel unter 30
-            depth_reward = -np.sum(20 - selected_data).astype(np.int64) / (n * 19)           # auf -1 normiert -> leichter zu gewichten
-            self.depth_ret += depth_reward"""
+            n = len(selected_data)                                                           # amount of pixels below 30
+            depth_reward = -np.sum(20 - selected_data).astype(np.int64) / (n * 19)           # normalized to [-1;0] 
+            depth_reward = depth_reward / 20
+            self.depth_ret += depth_reward
+        
 
-        reward_for_target = 0
-        if current_distance < 3.0:
-            reward_for_target = 100
+        reward = (distance_reward + steering_reward + depth_reward)
+
+         # end episode, when reaching the target, colliding, reaching time limit or leaving the square 
+        if current_distance < 1.0:
             print("\ntarget reached!")
             self.done = True
+            reward = 300
 
-        reward = (reward_for_target + distance_reward + steering_reward)
-
-        # negative reward and stop episode, when leaving the square or colliding
-        if not self.is_within_bounds():
-             print("\nout of bounds!")
-             self.done = True
-           
         elif self.sensor_data["collision"] == True:
             print("\ncollision!")
             self.done = True
             reward = -100
+        
+        elif self.tick_count >= self.max_time_steps:
+            print("\nmax_time_steps reached!")
+            self.done = True
+            reward = -100
 
-        # end episode and negative reward for taking too long (rausgenommen)
+        elif not self.is_within_bounds():
+             print("\nout of bounds!")
+             self.done = True
+             reward = 0       
+
         self.world.tick()
         self.tick_count += 1
-        
-        
-        if self.tick_count >= self.max_time_steps:
-            self.done = True
-            print("\nmax_time_steps reached!")
-            reward = -100
         
         return reward
     
