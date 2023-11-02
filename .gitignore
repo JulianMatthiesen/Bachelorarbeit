@@ -1,0 +1,5 @@
+*.pyc
+
+code/logs
+code/__pycache__
+code/models

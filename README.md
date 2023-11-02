@@ -63,12 +63,13 @@ Installation inklusive Tensorboard und OpenCV:
     
 ### Gymnasium
 
-    pip3 install gymnasium
+    pip3 install gym
     
 ### Verwendete Versionen:
 - numpy 1.23.5
 - pygame 2.1.3
 - carla 0.9.13
+- gym 0.21.0
 - gymnasium 0.28.1
 - stable-baselines3 1.8.0
 
